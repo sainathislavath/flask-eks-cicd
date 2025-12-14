@@ -130,61 +130,70 @@ pipeline {
         stage('Configure kubectl') {
             steps {
                 echo "⚙️ Configuring kubectl for EKS cluster..."
-                sh '''
-                    export KUBECONFIG=${KUBECONFIG}
-                    aws eks update-kubeconfig \
-                        --region ${AWS_DEFAULT_REGION} \
-                        --name ${CLUSTER_NAME}
-                    
-                    echo "Cluster info:"
-                    kubectl cluster-info
-                    
-                    echo "Available nodes:"
-                    kubectl get nodes
-                '''
+                withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    sh '''
+                        export KUBECONFIG=${KUBECONFIG}
+                        export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+                        aws eks update-kubeconfig \
+                            --region ${AWS_DEFAULT_REGION} \
+                            --name ${CLUSTER_NAME}
+                        
+                        echo "Cluster info:"
+                        kubectl cluster-info
+                        
+                        echo "Available nodes:"
+                        kubectl get nodes
+                    '''
+                }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
                 echo "🚀 Deploying application to EKS..."
-                sh '''
-                    export KUBECONFIG=${KUBECONFIG}
-                    echo "Creating/updating namespace: ${K8S_NAMESPACE}"
-                    kubectl apply -f k8s/namespace.yaml
-                    
-                    echo "Creating/updating deployment..."
-                    cat k8s/deployment.yaml | \
-                        sed -e "s|<IMAGE_URI>|${IMAGE_URI}|g" | \
-                        kubectl apply -f -
-                    
-                    echo "Creating/updating service..."
-                    kubectl apply -f k8s/service.yaml
-                    
-                    echo "Waiting for deployment rollout..."
-                    kubectl -n ${K8S_NAMESPACE} rollout status deployment/${APP_NAME} --timeout=5m
-                '''
+                withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    sh '''
+                        export KUBECONFIG=${KUBECONFIG}
+                        export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+                        echo "Creating/updating namespace: ${K8S_NAMESPACE}"
+                        kubectl apply -f k8s/namespace.yaml
+                        
+                        echo "Creating/updating deployment..."
+                        cat k8s/deployment.yaml | \
+                            sed -e "s|<IMAGE_URI>|${IMAGE_URI}|g" | \
+                            kubectl apply -f -
+                        
+                        echo "Creating/updating service..."
+                        kubectl apply -f k8s/service.yaml
+                        
+                        echo "Waiting for deployment rollout..."
+                        kubectl -n ${K8S_NAMESPACE} rollout status deployment/${APP_NAME} --timeout=5m
+                    '''
+                }
             }
         }
 
         stage('Verify Deployment') {
             steps {
                 echo "✔️ Verifying deployment..."
-                sh '''
-                    export KUBECONFIG=${KUBECONFIG}
-                    echo "Deployment status:"
-                    kubectl -n ${K8S_NAMESPACE} get deployment ${APP_NAME}
-                    
-                    echo "Pods status:"
-                    kubectl -n ${K8S_NAMESPACE} get pods
-                    
-                    echo "Services:"
-                    kubectl -n ${K8S_NAMESPACE} get svc
-                    
-                    echo "Service endpoint:"
-                    kubectl -n ${K8S_NAMESPACE} get svc flask-eks-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-                    echo ""
-                '''
+                withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    sh '''
+                        export KUBECONFIG=${KUBECONFIG}
+                        export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+                        echo "Deployment status:"
+                        kubectl -n ${K8S_NAMESPACE} get deployment ${APP_NAME}
+                        
+                        echo "Pods status:"
+                        kubectl -n ${K8S_NAMESPACE} get pods
+                        
+                        echo "Services:"
+                        kubectl -n ${K8S_NAMESPACE} get svc
+                        
+                        echo "Service endpoint:"
+                        kubectl -n ${K8S_NAMESPACE} get svc flask-eks-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+                        echo ""
+                    '''
+                }
             }
         }
     }
@@ -192,48 +201,57 @@ pipeline {
     post {
         always {
             echo "📊 Post-build status:"
-            sh '''
-                export KUBECONFIG=${KUBECONFIG}
-                echo "All Kubernetes resources in ${K8S_NAMESPACE}:"
-                kubectl get all -n ${K8S_NAMESPACE} || true
-                
-                echo "Recent pod logs:"
-                kubectl -n ${K8S_NAMESPACE} logs -l app=${APP_NAME} --tail=20 || true
-            '''
+            withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                sh '''
+                    export KUBECONFIG=${KUBECONFIG}
+                    export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+                    echo "All Kubernetes resources in ${K8S_NAMESPACE}:"
+                    kubectl get all -n ${K8S_NAMESPACE} || true
+                    
+                    echo "Recent pod logs:"
+                    kubectl -n ${K8S_NAMESPACE} logs -l app=${APP_NAME} --tail=20 || true
+                '''
+            }
         }
 
         success {
             echo "✅ Pipeline completed successfully!"
-            sh '''
-                export KUBECONFIG=${KUBECONFIG}
-                echo "Deployment Summary:"
-                echo "==================="
-                echo "Application: ${APP_NAME}"
-                echo "Image: ${IMAGE_URI}"
-                echo "Cluster: ${CLUSTER_NAME}"
-                echo "Namespace: ${K8S_NAMESPACE}"
-                echo "Region: ${AWS_DEFAULT_REGION}"
-                echo ""
-                echo "Service Endpoint:"
-                kubectl -n ${K8S_NAMESPACE} get svc flask-eks-service -o wide
-            '''
+            withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                sh '''
+                    export KUBECONFIG=${KUBECONFIG}
+                    export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+                    echo "Deployment Summary:"
+                    echo "==================="
+                    echo "Application: ${APP_NAME}"
+                    echo "Image: ${IMAGE_URI}"
+                    echo "Cluster: ${CLUSTER_NAME}"
+                    echo "Namespace: ${K8S_NAMESPACE}"
+                    echo "Region: ${AWS_DEFAULT_REGION}"
+                    echo ""
+                    echo "Service Endpoint:"
+                    kubectl -n ${K8S_NAMESPACE} get svc flask-eks-service -o wide
+                '''
+            }
         }
 
         failure {
             echo "❌ Pipeline failed!"
-            sh '''
-                export KUBECONFIG=${KUBECONFIG}
-                echo "Debug information:"
-                echo "=================="
-                echo "Cluster status:"
-                aws eks describe-cluster --name ${CLUSTER_NAME} --region ${AWS_DEFAULT_REGION} || true
-                
-                echo "Pod events:"
-                kubectl -n ${K8S_NAMESPACE} describe pods || true
-                
-                echo "Recent errors:"
-                kubectl -n ${K8S_NAMESPACE} logs -l app=${APP_NAME} --tail=50 || true
-            '''
+            withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                sh '''
+                    export KUBECONFIG=${KUBECONFIG}
+                    export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+                    echo "Debug information:"
+                    echo "=================="
+                    echo "Cluster status:"
+                    aws eks describe-cluster --name ${CLUSTER_NAME} --region ${AWS_DEFAULT_REGION} || true
+                    
+                    echo "Pod events:"
+                    kubectl -n ${K8S_NAMESPACE} describe pods || true
+                    
+                    echo "Recent errors:"
+                    kubectl -n ${K8S_NAMESPACE} logs -l app=${APP_NAME} --tail=50 || true
+                '''
+            }
         }
 
         cleanup {
