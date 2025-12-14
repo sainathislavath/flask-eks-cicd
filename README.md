@@ -774,6 +774,8 @@ Deployment Summary:
 - Status: All pods running
 ```
 
+![Jenkins Pipeline Success](Assets/10.png)
+
 ### 🔍 Environment Variables (Auto-Configured)
 
 ```groovy
@@ -843,7 +845,8 @@ flask-eks-cicd/
 │   ├── 6.png                   # ECR repository verification
 │   ├── 7.png                   # Docker push
 │   ├── 8.png                   # Test application endpoint
-│   └── 9.png                   # Kubernetes deployment verification
+│   ├── 9.png                   # Kubernetes deployment verification
+│   └── 10.png                  # Jenkins pipeline running successfully
 │
 ├── Dockerfile                   # Multi-stage Docker build
 ├── Jenkinsfile                  # CI/CD pipeline definition
