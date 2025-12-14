@@ -776,6 +776,8 @@ Deployment Summary:
 
 ![Jenkins Pipeline Success](Assets/10.png)
 
+![Jenkins Pipeline Completion](Assets/11.png)
+
 ### 🔍 Environment Variables (Auto-Configured)
 
 ```groovy
@@ -846,7 +848,8 @@ flask-eks-cicd/
 │   ├── 7.png                   # Docker push
 │   ├── 8.png                   # Test application endpoint
 │   ├── 9.png                   # Kubernetes deployment verification
-│   └── 10.png                  # Jenkins pipeline running successfully
+│   ├── 10.png                  # Jenkins pipeline running successfully
+│   └── 11.png                  # Jenkins pipeline completion
 │
 ├── Dockerfile                   # Multi-stage Docker build
 ├── Jenkinsfile                  # CI/CD pipeline definition
