@@ -14,6 +14,7 @@ pipeline {
         // AWS Configuration
         AWS_DEFAULT_REGION = 'us-west-2'
         AWS_ACCOUNT_ID     = '975050024946'
+        AWS_CREDENTIALS_ID = 'aws-jenkins-creds'
         
         // Application Configuration
         APP_NAME           = 'flask-eks-app'
@@ -23,6 +24,8 @@ pipeline {
         IMAGE_TAG          = "${BUILD_NUMBER}"
         ECR_REGISTRY       = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
         IMAGE_URI          = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+        KUBECONFIG         = "${WORKSPACE}/kubeconfig"
+        DOCKER_BUILDKIT    = '0'
     }
 
     stages {
@@ -95,12 +98,21 @@ pipeline {
             steps {
                 echo "🔐 Authenticating with AWS ECR..."
                 sh '''
-                    aws --version
-                    aws sts get-caller-identity
-                    aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | \
-                        docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                    echo "✅ ECR login successful"
+                    if [ -z "${AWS_CREDENTIALS_ID}" ]; then
+                        echo "AWS_CREDENTIALS_ID not set. Configure a Jenkins AWS credential with ECR permissions and set AWS_CREDENTIALS_ID." >&2
+                        exit 1
+                    fi
                 '''
+                withCredentials([[ $class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    sh '''
+                        export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+                        aws --version
+                        aws sts get-caller-identity
+                        aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | \
+                            docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                        echo "✅ ECR login successful"
+                    '''
+                }
             }
         }
 
@@ -119,6 +131,7 @@ pipeline {
             steps {
                 echo "⚙️ Configuring kubectl for EKS cluster..."
                 sh '''
+                    export KUBECONFIG=${KUBECONFIG}
                     aws eks update-kubeconfig \
                         --region ${AWS_DEFAULT_REGION} \
                         --name ${CLUSTER_NAME}
@@ -136,6 +149,7 @@ pipeline {
             steps {
                 echo "🚀 Deploying application to EKS..."
                 sh '''
+                    export KUBECONFIG=${KUBECONFIG}
                     echo "Creating/updating namespace: ${K8S_NAMESPACE}"
                     kubectl apply -f k8s/namespace.yaml
                     
@@ -157,6 +171,7 @@ pipeline {
             steps {
                 echo "✔️ Verifying deployment..."
                 sh '''
+                    export KUBECONFIG=${KUBECONFIG}
                     echo "Deployment status:"
                     kubectl -n ${K8S_NAMESPACE} get deployment ${APP_NAME}
                     
@@ -178,6 +193,7 @@ pipeline {
         always {
             echo "📊 Post-build status:"
             sh '''
+                export KUBECONFIG=${KUBECONFIG}
                 echo "All Kubernetes resources in ${K8S_NAMESPACE}:"
                 kubectl get all -n ${K8S_NAMESPACE} || true
                 
@@ -189,6 +205,7 @@ pipeline {
         success {
             echo "✅ Pipeline completed successfully!"
             sh '''
+                export KUBECONFIG=${KUBECONFIG}
                 echo "Deployment Summary:"
                 echo "==================="
                 echo "Application: ${APP_NAME}"
@@ -205,6 +222,7 @@ pipeline {
         failure {
             echo "❌ Pipeline failed!"
             sh '''
+                export KUBECONFIG=${KUBECONFIG}
                 echo "Debug information:"
                 echo "=================="
                 echo "Cluster status:"
