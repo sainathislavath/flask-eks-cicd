@@ -158,12 +158,10 @@ pipeline {
                         echo "Creating/updating namespace: ${K8S_NAMESPACE}"
                         kubectl apply -f k8s/namespace.yaml
                         
-                        echo "Creating/updating deployment..."
-                        cat k8s/deployment.yaml | \
-                            sed -e "s|<IMAGE_URI>|${IMAGE_URI}|g" | \
-                            kubectl apply -f -
-                        
-                        echo "Creating/updating service..."
+                    echo "Creating/updating deployment..."
+                    cat k8s/deployment.yaml | \
+                        sed "s|<tag>|${IMAGE_TAG}|g" | \
+                        kubectl apply -f -                        echo "Creating/updating service..."
                         kubectl apply -f k8s/service.yaml
                         
                         echo "Waiting for deployment rollout..."
