@@ -14,7 +14,7 @@ pipeline {
         // AWS Configuration
         AWS_DEFAULT_REGION = 'us-west-2'
         AWS_ACCOUNT_ID     = '975050024946'
-        AWS_CREDENTIALS_ID = 'github-cred'
+        AWS_CREDENTIALS_ID = 'aws-jenkins-creds'
         
         // Application Configuration
         APP_NAME           = 'flask-eks-app'
