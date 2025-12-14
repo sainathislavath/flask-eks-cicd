@@ -38,10 +38,21 @@ pipeline {
             steps {
                 echo "🐍 Setting up Python environment..."
                 sh '''
-                    python --version
-                    python -m venv venv || true
-                    . venv/bin/activate || true
-                    pip --version
+                    if ! command -v python3 >/dev/null 2>&1; then
+                        echo "python3 not found. Attempting to install..."
+                        if command -v apt-get >/dev/null 2>&1; then
+                            apt-get update -y
+                            apt-get install -y python3 python3-venv python3-pip
+                        else
+                            echo "apt-get not available. Install python3 on this agent and rerun."
+                            exit 1
+                        fi
+                    fi
+
+                    python3 --version
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    python -m pip --version
                 '''
             }
         }
@@ -50,9 +61,9 @@ pipeline {
             steps {
                 echo "📦 Installing Python dependencies..."
                 sh '''
-                    . venv/bin/activate || true
-                    pip install --upgrade pip
-                    pip install -r app/requirements.txt
+                    . venv/bin/activate
+                    python -m pip install --upgrade pip
+                    python -m pip install -r app/requirements.txt
                 '''
             }
         }
@@ -61,7 +72,7 @@ pipeline {
             steps {
                 echo "✅ Running tests..."
                 sh '''
-                    . venv/bin/activate || true
+                    . venv/bin/activate
                     python -m py_compile app/main.py
                     echo "Python syntax check passed!"
                 '''
